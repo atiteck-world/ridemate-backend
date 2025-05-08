@@ -1,11 +1,11 @@
 
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, DestroyAPIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .serializers import RideSerializer
-from .models import Ride
+from .serializers import RideSerializer, BookingSerializer
+from .models import Ride, Booking
 
 # Create your views here.
 
@@ -25,8 +25,7 @@ class RideCreateView(APIView):
                 print("ride creation error:", e)
                 return Response({"error": str( e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
+   
 class RideListView(ListAPIView):
     serializer_class = RideSerializer
     permission_classes = [IsAuthenticated]
@@ -48,8 +47,6 @@ class RideListView(ListAPIView):
 
         return queryset
     
-
-
 class RideDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Ride.objects.all()
     serializer_class = RideSerializer
@@ -57,3 +54,57 @@ class RideDetailView(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return self.queryset.filter(driver=self.request.user)
+    
+class BookRideView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, ride_id):
+        try:
+            ride = Ride.objects.get(pk=ride_id)
+        except Ride.DoesNotExist:
+            return Response({"error": "Ride not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            seats_requested = int(request.data.get('seats_booked', 1))
+            if seats_requested < 1:
+                raise ValueError("Seats requested must be at least 1.")
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid number of seats requested."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if ride.seats_available < seats_requested:
+            return Response({"error": "Not enough seats available."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # create booking
+        booking = Booking.objects.create(
+            ride = ride,
+            passenger = request.user,
+            seats_booked=seats_requested
+        )
+
+        ride.seats_available -= seats_requested
+        ride.save()
+
+        return Response({
+            "message": "Ride booked successfully.",
+            "booking": BookingSerializer(booking).data
+        }, status=status.HTTP_201_CREATED)
+    
+class MyBookingsView(ListAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Booking.objects.filter(passenger=self.request.user).order_by('-booked_at')
+    
+class CancelBookingView(DestroyAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Booking.objects.filter(passenger=self.request.user)
+    
+    def perform_destroy(self, instance):
+        ride = instance.ride
+        ride.seats_available += instance.seats_booked
+        ride.save()
+        instance.delete()

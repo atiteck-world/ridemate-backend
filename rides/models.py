@@ -13,3 +13,15 @@ class Ride(models.Model):
 
     def __str__(self):
         return f"{self.origin} to {self.destination} by {self.driver.username}"
+    
+
+class Booking(models.Model):
+    ride = models.ForeignKey(Ride, on_delete=models.CASCADE, related_name='bookings')
+    passenger = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    seats_booked = models.PositiveIntegerField(default=1)
+    booked_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.passenger.username} booked {self.seats_booked} seat(s) on Ride {self.ride.id}"
+    
+
