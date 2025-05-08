@@ -1,10 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import UserRegistrationSerializer
+from .serializers import UserRegistrationSerializer, UserProfileSerializer
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -31,3 +31,23 @@ class LoginView(ObtainAuthToken):
                 'username': user.username
             })
         return Response({"Error": "invalid username or passsword"}, status=status.HTTP_400_BAD_REQUEST)
+
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        serializer = UserProfileSerializer(user)
+        return Response(serializer.data)
+    
+    def put(self, request):
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Profile updated successfully", "data": serializer.data})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request):
+        user = request.user
+        user.delete()
+        return Response({'message': 'User delete successfully'}, status=status.HTTP_204_NO_CONTENT)
