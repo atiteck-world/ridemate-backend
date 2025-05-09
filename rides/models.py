@@ -32,4 +32,33 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"To {self.user.username} - {self.message[:30]}..."
+    
+class Rating(models.Model):
+    ride = models.ForeignKey(Ride, on_delete=models.CASCADE, related_name='ratings')
+    passenger = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    driver = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='received_ratings')
+    score = models.PositiveSmallIntegerField()
+    review = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('ride', 'passenger')
+
+
+    def __str__(self):
+        return f"{self.passenger.username} rated {self.driver.username} - {self.score}"
+    
+class Message(models.Model):
+    sender = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='sent_messages')
+    receiver = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='received_messages')
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"{self.sender.username} → {self.receiver.username}: {self.content[:30]}"
+
 

@@ -1,5 +1,6 @@
+
 from rest_framework import serializers
-from .models import Ride, Booking, User, Notification
+from .models import Ride, Booking, User, Notification, Rating, Message
 
 class RideSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,3 +30,15 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'message', 'is_read', 'created_at']
+
+class RatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rating
+        fields = ['id', 'ride', 'passenger', 'driver', 'score', 'review', 'created_at']
+        read_only_fields = ['id', 'passenger', 'driver', 'created_at']
+
+class MessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['id', 'sender', 'receiver', 'content', 'is_read', 'timestamp']
+        read_only_fields = ['id', 'sender', 'is_read', 'timestamp']

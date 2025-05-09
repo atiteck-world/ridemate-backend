@@ -1,12 +1,16 @@
 
+from django.forms import ValidationError
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, DestroyAPIView
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, DestroyAPIView, CreateAPIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from .serializers import RideSerializer, BookingSerializer, NotificationSerializer
-from .models import Ride, Booking, Notification
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import status, serializers
+from .serializers import MessageSerializer, RatingSerializer, RideSerializer, BookingSerializer, NotificationSerializer
+from .models import Rating, Ride, Booking, Notification, Message
 from .permissions import IsDriver, IsPassenger
+from django.db.models import Q
+from django.db.models import Max
+
 
 # Create your views here.
 
@@ -153,3 +157,81 @@ class UserNotificationView(ListAPIView):
 
     def get_queryset(self):
         return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+
+class SubmitRatingView(CreateAPIView):
+    serializer_class = RatingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        ride_id = self.request.data.get('ride')
+        if not ride_id:
+            raise ValidationError({"ride": "Ride ID is required."})
+
+        try:
+            ride = Ride.objects.get(id=ride_id)
+        except Ride.DoesNotExist:
+            raise ValidationError({"ride": "Ride not found."})
+
+        if ride.driver == self.request.user:
+            raise ValidationError("Drivers cannot rate themselves.")
+
+        # Check if this user already rated this ride
+        if Rating.objects.filter(ride=ride, passenger=self.request.user).exists():
+            raise ValidationError("You have already rated this ride.")
+
+        serializer.save(
+            ride=ride,
+            passenger=self.request.user,
+            driver=ride.driver
+        )
+
+class DriverRatingListView(ListAPIView):
+    serializer_class = RatingSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        driver_id = self.kwargs['driver_id']
+        return Rating.objects.filter(driver__id=driver_id).order_by('-created_at')
+    
+class SendMessageView(CreateAPIView):
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        receiver_id = self.request.data.get('receiver')
+        if not receiver_id:
+            raise serializers.ValidationError({"receiver": "Receiver ID is required."})
+
+        serializer.save(sender=self.request.user)
+
+class ChatThreadView(ListAPIView):
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        other_user_id = self.kwargs['user_id']
+        user = self.request.user
+
+        return Message.objects.filter(
+            (Q(sender=user) & Q(receiver_id=other_user_id)) |
+            (Q(sender_id=other_user_id) & Q(receiver=user))
+        ).order_by('timestamp')
+    
+class InboxView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Get latest message per conversation
+        latest_messages_ids = (
+            Message.objects
+            .filter(Q(sender=user) | Q(receiver=user))
+            .values('sender', 'receiver')
+            .annotate(latest_id=Max('id'))
+            .values_list('latest_id', flat=True)
+        )
+
+        messages = Message.objects.filter(id__in=latest_messages_ids).order_by('-timestamp')
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)

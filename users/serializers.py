@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import DriverProfile, PassengerProfile, User
+from rides.models import Rating
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Avg
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -48,7 +50,14 @@ class PassengerProfileSerializer(serializers.ModelSerializer):
 class PublicDriverProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     phone_number = serializers.CharField(source='user.phone_number', read_only=True)
+    average_rating = serializers.SerializerMethodField()
+
+    def get_average_rating(self, obj):
+        ratings = Rating.objects.filter(driver=obj.user)
+        if ratings.exists():
+            return round(ratings.aggregate(avg=Avg('score'))['avg'], 1)
+        return None
     
     class Meta:
         model = DriverProfile
-        fields = ['id', 'username', 'phone_number', 'profile_picture', 'bio', 'vehicle_model', 'vehicle_number', 'vehicle_color']
+        fields = ['id', 'username', 'phone_number', 'profile_picture', 'bio', 'vehicle_model', 'vehicle_number', 'vehicle_color', 'average_rating']
