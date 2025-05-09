@@ -3,6 +3,7 @@ from django.forms import ValidationError
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, DestroyAPIView, CreateAPIView
 from rest_framework.response import Response
+from rest_framework import status as http_status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status, serializers
 from .serializers import MessageSerializer, RatingSerializer, RideSerializer, BookingSerializer, NotificationSerializer
@@ -151,6 +152,35 @@ class DriverRideBookingView(ListAPIView):
 
         #Return bookings made on those rides
         return Booking.objects.filter(ride__in=driver_rides).order_by('-booked_at')
+    
+class BookingApprovalView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, booking_id):
+        action = request.data.get('action')  # 'approve' or 'decline'
+        if action not in ['approve', 'decline']:
+            return Response({"error": "Invalid action."}, status=400)
+
+        try:
+            booking = Booking.objects.select_related('ride').get(id=booking_id, ride__driver=request.user)
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found or unauthorized."}, status=404)
+        
+        if booking.status != 'pending':
+            return Response({"error": f"Booking already {booking.status}."}, status=400)
+
+        if action == 'approve':
+            if booking.ride.seats_available < booking.seats_booked:
+                return Response({"error": "Not enough seats available."}, status=400)
+
+            # Deduct seats and approve
+            booking.ride.seats_available -= booking.seats_booked
+            booking.ride.save()
+
+        booking.status = 'approved' if action == 'approve' else 'declined'
+        booking.save()
+
+        return Response({"message": f"Booking {action}d."}, status=http_status.HTTP_200_OK)
     
 class UserNotificationView(ListAPIView):
     serializer_class = NotificationSerializer

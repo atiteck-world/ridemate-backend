@@ -16,10 +16,20 @@ class Ride(models.Model):
     
 
 class Booking(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('declined', 'Declined'),
+    ]
+
     ride = models.ForeignKey(Ride, on_delete=models.CASCADE, related_name='bookings')
     passenger = models.ForeignKey('users.User', on_delete=models.CASCADE)
     seats_booked = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     booked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['ride', 'passenger']
 
     def __str__(self):
         return f"{self.passenger.username} booked {self.seats_booked} seat(s) on Ride {self.ride.id}"
