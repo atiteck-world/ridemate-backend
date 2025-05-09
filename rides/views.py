@@ -4,8 +4,8 @@ from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, D
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .serializers import RideSerializer, BookingSerializer
-from .models import Ride, Booking
+from .serializers import RideSerializer, BookingSerializer, NotificationSerializer
+from .models import Ride, Booking, Notification
 from .permissions import IsDriver, IsPassenger
 
 # Create your views here.
@@ -81,6 +81,21 @@ class BookRideView(APIView):
             passenger = request.user,
             seats_booked=seats_requested
         )
+        # Notify driver
+        Notification.objects.create(
+            user=ride.driver,
+            message=f"{request.user.username} booked {seats_requested} seat(s) on your ride {ride.origin} to {ride.destination}."
+        )
+
+        #print(f"Notification: {request.user.username} booked {seats_requested} seat(s) on your ride from {ride.origin} to {ride.destination}.")
+
+        # Notify passenger
+        Notification.objects.create(
+            user=request.user,
+            message=f"You booked {seats_requested} seat(s) from {ride.origin} to {ride.destination}."
+        )
+        #print(f"You booked {seats_requested} seat(s) from {ride.origin} to {ride.destination} for GH₵{ride.fare}.")
+
 
         ride.seats_available -= seats_requested
         ride.save()
@@ -110,6 +125,17 @@ class CancelBookingView(DestroyAPIView):
         ride.save()
         instance.delete()
 
+        Notification.objects.create(
+            user = instance.ride.driver,
+            message = f"{self.request.user.username} canceled their booking on your ride from {instance.ride.origin} to {instance.ride.destination}."
+        )
+
+        Notification.objects.create(
+            user = self.request.user,
+            message = f"You canceled your booking from {instance.ride.origin} to {instance.ride.destination}."
+        )
+        #print(f"{self.request.user.username} canceled their booking for ride {instance.ride.id}.")
+
 class DriverRideBookingView(ListAPIView):
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
@@ -120,3 +146,10 @@ class DriverRideBookingView(ListAPIView):
 
         #Return bookings made on those rides
         return Booking.objects.filter(ride__in=driver_rides).order_by('-booked_at')
+    
+class UserNotificationView(ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')

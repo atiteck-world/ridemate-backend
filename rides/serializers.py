@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Ride, Booking, User
+from .models import Ride, Booking, User, Notification
 
 class RideSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,3 +24,8 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = ['id', 'ride', 'passenger', 'seats_booked', 'booked_at']
         #read_only_fields = ['id', 'booked_at']
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'message', 'is_read', 'created_at']
