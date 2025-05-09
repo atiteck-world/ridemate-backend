@@ -6,11 +6,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .serializers import RideSerializer, BookingSerializer
 from .models import Ride, Booking
+from .permissions import IsDriver, IsPassenger
 
 # Create your views here.
 
 class RideCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsDriver]
 
     def post(self, request):
         serializer = RideSerializer(data=request.data)
@@ -56,7 +57,7 @@ class RideDetailView(RetrieveUpdateDestroyAPIView):
         return self.queryset.filter(driver=self.request.user)
     
 class BookRideView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsPassenger]
 
     def post(self, request, ride_id):
         try:
@@ -108,3 +109,14 @@ class CancelBookingView(DestroyAPIView):
         ride.seats_available += instance.seats_booked
         ride.save()
         instance.delete()
+
+class DriverRideBookingView(ListAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        #Get all rides created by the logged-in driver
+        driver_rides = Ride.objects.filter(driver=self.request.user)
+
+        #Return bookings made on those rides
+        return Booking.objects.filter(ride__in=driver_rides).order_by('-booked_at')
