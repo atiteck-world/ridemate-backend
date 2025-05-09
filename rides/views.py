@@ -10,6 +10,7 @@ from .models import Rating, Ride, Booking, Notification, Message
 from .permissions import IsDriver, IsPassenger
 from django.db.models import Q
 from django.db.models import Max
+from django.utils import timezone
 
 
 # Create your views here.
@@ -235,3 +236,23 @@ class InboxView(APIView):
         messages = Message.objects.filter(id__in=latest_messages_ids).order_by('-timestamp')
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
+    
+class RideHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        now = timezone.now()
+
+        if user.is_driver:
+            rides = Ride.objects.filter(driver=user)
+        else:
+            rides = Ride.objects.filter(bookings__passenger=user).distinct()
+
+        upcoming = rides.filter(departure_time__gt=now)
+        past = rides.filter(departure_time__lt=now)
+
+        return Response({
+            "upcoming": RideSerializer(upcoming, many=True).data,
+            "past": RideSerializer(past, many=True).data
+        })
