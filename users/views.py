@@ -1,7 +1,11 @@
+
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import UserRegistrationSerializer, UserProfileSerializer
+from users.models import DriverProfile, PassengerProfile
+from .serializers import DriverProfileSerializer, PassengerProfileSerializer, UserRegistrationSerializer, UserProfileSerializer, PublicDriverProfileSerializer
+from .models import User
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -51,3 +55,59 @@ class UserProfileView(APIView):
         user = request.user
         user.delete()
         return Response({'message': 'User delete successfully'}, status=status.HTTP_204_NO_CONTENT)
+    
+class DriverProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.is_driver:
+            return Response({"error": "Only drivers have a driver profile."}, status=403)
+
+        profile, created = DriverProfile.objects.get_or_create(user=request.user)
+        serializer = DriverProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def put(self, request):
+        if not request.user.is_driver:
+            return Response({"error": "Only drivers can update this profile."}, status=403)
+
+        profile, created = DriverProfile.objects.get_or_create(user=request.user)
+
+        serializer = DriverProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Driver profile updated.", "data": serializer.data})
+        return Response(serializer.errors, status=400)
+    
+class PassengerProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.is_driver:
+            return Response({"error": "Only passengers have a passenger profile."}, status=403)
+
+        profile, _ = PassengerProfile.objects.get_or_create(user=request.user)
+        serializer = PassengerProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def put(self, request):
+        if request.user.is_driver:
+            return Response({"error": "Only passengers can update this profile."}, status=403)
+
+        profile, _ = PassengerProfile.objects.get_or_create(user=request.user)
+        serializer = PassengerProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Passenger profile updated.", "data": serializer.data})
+        return Response(serializer.errors, status=400)
+    
+class PublicDriverProfileView(RetrieveAPIView):
+    queryset = DriverProfile.objects.select_related('user')
+    serializer_class = PublicDriverProfileSerializer
+    permission_classes = [AllowAny]
+    lookup_field = 'user_id'
+
+class DriverListView(ListAPIView):
+    queryset = DriverProfile.objects.select_related('user').order_by('user__username')
+    serializer_class = PublicDriverProfileSerializer
+    permission_classes = [AllowAny]
