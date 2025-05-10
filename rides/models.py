@@ -70,5 +70,18 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.sender.username} → {self.receiver.username}: {self.content[:30]}"
+    
+class DriverVerification(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='driver_verification')
+    license_number = models.CharField(max_length=50)
+    license_document = models.FileField(upload_to='driver_licenses/')
+    national_id_document = models.FileField(upload_to='national_ids/')
+    selfie_with_id = models.ImageField(upload_to='selfie_ids/')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    verified = models.BooleanField(default=False)
+    verification_notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.username} - Verified: {self.verified}"
 
 

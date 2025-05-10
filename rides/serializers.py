@@ -1,6 +1,6 @@
 
 from rest_framework import serializers
-from .models import Ride, Booking, User, Notification, Rating, Message
+from .models import DriverVerification, Ride, Booking, User, Notification, Rating, Message
 
 class RideSerializer(serializers.ModelSerializer):
     class Meta:
@@ -42,3 +42,9 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = ['id', 'sender', 'receiver', 'content', 'is_read', 'timestamp']
         read_only_fields = ['id', 'sender', 'is_read', 'timestamp']
+
+class DriverVerificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DriverVerification
+        fields = '__all__'
+        read_only_fields = ['user', 'verified', 'submitted_at']

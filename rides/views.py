@@ -1,13 +1,13 @@
 
 from django.forms import ValidationError
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, DestroyAPIView, CreateAPIView
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, DestroyAPIView, CreateAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.response import Response
 from rest_framework import status as http_status
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework import status, serializers
-from .serializers import MessageSerializer, RatingSerializer, RideSerializer, BookingSerializer, NotificationSerializer
-from .models import Rating, Ride, Booking, Notification, Message
+from .serializers import DriverVerificationSerializer, MessageSerializer, RatingSerializer, RideSerializer, BookingSerializer, NotificationSerializer
+from .models import DriverVerification, Rating, Ride, Booking, Notification, Message
 from .permissions import IsDriver, IsPassenger
 from django.db.models import Q
 from django.db.models import Max
@@ -286,3 +286,22 @@ class RideHistoryView(APIView):
             "upcoming": RideSerializer(upcoming, many=True).data,
             "past": RideSerializer(past, many=True).data
         })
+    
+class SubmitDriverVerificationView(CreateAPIView):
+    serializer_class = DriverVerificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class DriverVerificationStatusView(RetrieveAPIView):
+    serializer_class = DriverVerificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return DriverVerification.objects.get(user=self.request.user)
+    
+class AdminDriverVerificationReviewView(UpdateAPIView):
+    queryset = DriverVerification.objects.all()
+    serializer_class = DriverVerificationSerializer
+    permission_classes = [IsAdminUser]

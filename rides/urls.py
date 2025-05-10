@@ -1,6 +1,6 @@
 
 from django.urls import path
-from .views import BookingApprovalView, ChatThreadView, DriverRatingListView, InboxView, RideCreateView, RideHistoryView, RideListView, RideDetailView, BookRideView, MyBookingsView, CancelBookingView, DriverRideBookingView, SendMessageView, SubmitRatingView, UserNotificationView
+from .views import AdminDriverVerificationReviewView, BookingApprovalView, ChatThreadView, DriverRatingListView, DriverVerificationStatusView, InboxView, RideCreateView, RideHistoryView, RideListView, RideDetailView, BookRideView, MyBookingsView, CancelBookingView, DriverRideBookingView, SendMessageView, SubmitDriverVerificationView, SubmitRatingView, UserNotificationView
 
 urlpatterns = [
     path('create/', RideCreateView.as_view(), name='ride-create'),
@@ -18,4 +18,8 @@ urlpatterns = [
     path('messages/thread/<int:user_id>/', ChatThreadView.as_view(), name='chat-thread'),
     path('messages/inbox/', InboxView.as_view(), name='inbox'),
     path('history/', RideHistoryView.as_view(), name='ride-history'),
+
+    path('driver/verification/submit/', SubmitDriverVerificationView.as_view(), name='submit-verification'),
+    path('driver/verification/status/', DriverVerificationStatusView.as_view(), name='check-verification'),
+    path('admin/driver/verification/<int:pk>/', AdminDriverVerificationReviewView.as_view(), name='review-verification'),
 ]
